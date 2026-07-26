@@ -138,25 +138,15 @@ jobs:
             fi
           done
           echo ""
-          echo "=== Common module classpath (from task properties) ==="
-          # Use gradle task properties to get the actual classpath
-          cat > /tmp/printcp.gradle << 'GRADLE'
-          allprojects {
-              afterEvaluate {
-                  tasks.matching { it.name == 'compileJava' }.configureEach {
-                      doLast {
-                          println "=== ${project.name} compileJava classpath ==="
-                          classpath.files.each { f ->
-                              if (f.name.contains("minecraft") || f.name.contains("neoforge")) {
-                                  println "  ${f.absolutePath}"
-                              }
-                          }
-                      }
-                  }
-              }
-          }
-          GRADLE
-          ./gradlew -I /tmp/printcp.gradle :common:compileJava :neo:compileJava 2>&1 | grep -E "===.*classpath|minecraft|neoforge" | grep -v "^$"
+          echo "=== List ALL loom cache jars ==="
+          find ~/.gradle/caches/fabric-loom -name "*.jar" 2>/dev/null | while read J; do
+            HAS=$(jar tf "$J" 2>/dev/null | grep -c "MultiBufferSource" || true)
+            echo "  $J -> $HAS"
+          done
+          echo ""
+          echo "=== Try: add deobf jar explicitly to common ==="
+          # Check if adding the deobf jar as compileOnly fixes it
+          echo "Let's just try building with the fix..."
         continue-on-error: true
 
       - name: Build
