@@ -28,41 +28,43 @@ jobs:
 
       - name: Diagnose API drift
         run: |
-          echo "=== Searching for MultiBufferSource equivalent ==="
-          find ~/.gradle/caches -name "*.jar" -path "*neoforge*26.2*" 2>/dev/null | head -5 | while read jar; do
-            echo "--- JAR: $jar ---"
-            jar tf "$jar" | grep -i "multibuffer\|buffersource\|BufferSource" | head -20
-          done
+          # Run gradle to download deps, then search the decompiled sources
+          ./gradlew :neo:prepareNeoForgeRun 2>/dev/null || true
+
+          echo "=== Searching decompiled MC sources ==="
+          MC_SRC=$(find ~/.gradle/caches -name "minecraft-*-sources.jar" -path "*26.2*" 2>/dev/null | head -1)
+          echo "MC sources jar: $MC_SRC"
+          if [ -n "$MC_SRC" ]; then
+            echo "--- MultiBufferSource ---"
+            jar tf "$MC_SRC" | grep -i "MultiBufferSource\|BufferSource" | head -10
+            echo "--- renderBuffers ---"
+            jar tf "$MC_SRC" | grep -i "RenderBuffers\|renderBuffers" | head -10
+            echo "--- Minecraft class methods ---"
+            jar tf "$MC_SRC" | grep "client/Minecraft.java" | head -5
+            echo "--- GuiGraphics ---"
+            jar tf "$MC_SRC" | grep "GuiGraphics" | head -10
+            echo "--- TagsProvider ---"
+            jar tf "$MC_SRC" | grep -i "TagsProvider\|IntrinsicHolder" | head -20
+            echo "--- ChatFormatting ---"
+            jar tf "$MC_SRC" | grep "ChatFormatting" | head -5
+            echo "--- RenderTarget ---"
+            jar tf "$MC_SRC" | grep "RenderTarget" | head -10
+            echo "--- PictureInPicture ---"
+            jar tf "$MC_SRC" | grep -i "PictureInPicture" | head -10
+            echo "--- VertexConsumer / BufferBuilder ---"
+            jar tf "$MC_SRC" | grep -i "VertexConsumer\|BufferBuilder" | head -10
+          fi
+
           echo ""
-          echo "=== Searching for renderBuffers/bufferSource ==="
-          find ~/.gradle/caches -name "*.jar" -path "*neoforge*26.2*" 2>/dev/null | head -5 | while read jar; do
-            jar tf "$jar" | grep -i "renderbuffer" | head -20
-          done
-          echo ""
-          echo "=== Searching for IntrinsicHolderTagsProvider ==="
-          find ~/.gradle/caches -name "*.jar" -path "*neoforge*26.2*" 2>/dev/null | head -5 | while read jar; do
-            jar tf "$jar" | grep -i "intrinsicholder\|TagsProvider" | head -20
-          done
-          echo ""
-          echo "=== Searching for pushGuiLayer/popGuiLayer ==="
-          find ~/.gradle/caches -name "*.jar" -path "*minecraft*26.2*" 2>/dev/null | head -5 | while read jar; do
-            jar tf "$jar" | grep -i "minecraft.*Minecraft" | head -5
-          done
-          echo ""
-          echo "=== Searching for ChatFormatting ==="
-          find ~/.gradle/caches -name "*.jar" -path "*minecraft*26.2*" 2>/dev/null | head -5 | while read jar; do
-            jar tf "$jar" | grep -i "ChatFormatting\|TextColor" | head -20
-          done
-          echo ""
-          echo "=== Searching for getMainRenderTarget ==="
-          find ~/.gradle/caches -name "*.jar" -path "*minecraft*26.2*" 2>/dev/null | head -5 | while read jar; do
-            jar tf "$jar" | grep -i "rendertarget\|RenderTarget" | head -20
-          done
-          echo ""
-          echo "=== Searching for PictureInPictureRenderer ==="
-          find ~/.gradle/caches -name "*.jar" -path "*minecraft*26.2*" 2>/dev/null | head -5 | while read jar; do
-            jar tf "$jar" | grep -i "PictureInPicture" | head -20
-          done
+          echo "=== Searching NeoForge patches for clues ==="
+          NF_JAR=$(find ~/.gradle/caches -name "neoforge-*-userdev.jar" -path "*26.2*" 2>/dev/null | head -1)
+          echo "NeoForge userdev jar: $NF_JAR"
+          if [ -n "$NF_JAR" ]; then
+            echo "--- ItemTagsProvider source ---"
+            jar xf "$NF_JAR" net/neoforged/neoforge/common/data/ItemTagsProvider.java 2>/dev/null && cat net/neoforged/neoforge/common/data/ItemTagsProvider.java | head -40
+            echo "--- TagsProvider patch ---"
+            jar tf "$NF_JAR" | grep "TagsProvider.*patch" | head -10
+          fi
         continue-on-error: true
 
       - name: Build
