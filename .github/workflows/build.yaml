@@ -26,46 +26,69 @@ jobs:
         with:
           gradle-home-cache-cleanup: true
 
+      - name: Build (collect deps)
+        run: ./gradlew :neo:compileJava --info 2>&1 | tail -5
+        continue-on-error: true
+
       - name: Diagnose API drift
         run: |
-          # Find the patched MC jar from the neo build
-          MC_JAR=$(find . -name "minecraft-client-patched-*.jar" 2>/dev/null | head -1)
-          if [ -z "$MC_JAR" ]; then
-            MC_JAR=$(find ~/.gradle/caches -name "minecraft-client-patched-*.jar" 2>/dev/null | head -1)
-          fi
-          echo "MC jar: $MC_JAR"
+          # Find all jars on the neo classpath from gradle output
+          CP=$(find ~/.gradle/caches -name "minecraft-client-patched-*.jar" -o -name "neoforge-*-universal.jar" 2>/dev/null | tr '\n' ':')
+          echo "Found classpath entries: $(echo $CP | tr ':' '\n' | wc -l)"
 
-          if [ -n "$MC_JAR" ]; then
-            echo "=== BufferBuilder constructor ==="
-            javap -cp "$MC_JAR" -p com.mojang.blaze3d.vertex.BufferBuilder 2>/dev/null | grep -i "BufferBuilder\|build\|vertexFormat" | head -15
-            echo ""
-            echo "=== RenderPipeline methods ==="
-            javap -cp "$MC_JAR" -p com.mojang.blaze3d.pipeline.RenderPipeline 2>/dev/null | head -30
-            echo ""
-            echo "=== Minecraft methods (gui/render related) ==="
-            javap -cp "$MC_JAR" -p net.minecraft.client.Minecraft 2>/dev/null | grep -i "pushGui\|popGui\|screen\|renderBuffer\|bufferSource\|mainRender\|getMain" | head -20
-            echo ""
-            echo "=== ChatFormatting methods ==="
-            javap -cp "$MC_JAR" -p net.minecraft.ChatFormatting 2>/dev/null | grep -i "color\|getCol" | head -10
-            echo ""
-            echo "=== PictureInPictureRenderer ==="
-            javap -cp "$MC_JAR" -p net.minecraft.client.gui.render.pip.PictureInPictureRenderer 2>/dev/null | head -20
-            echo ""
-            echo "=== TagsProvider ==="
-            javap -cp "$MC_JAR" -p net.minecraft.data.tags.TagsProvider 2>/dev/null | head -30
-            echo ""
-            echo "=== IntrinsicHolderTagsProvider ==="
-            javap -cp "$MC_JAR" -p net.minecraft.data.tags.IntrinsicHolderTagsProvider 2>/dev/null | head -20
-            echo ""
-            echo "=== ItemTagsProvider ==="
-            javap -cp "$MC_JAR" -p net.minecraft.data.tags.ItemTagsProvider 2>/dev/null | head -20
-            echo ""
-            echo "=== RenderBuffers ==="
-            javap -cp "$MC_JAR" -p net.minecraft.client.renderer.RenderBuffers 2>/dev/null | grep -i "buffer" | head -15
-            echo ""
-            echo "=== RenderTarget ==="
-            javap -cp "$MC_JAR" -p com.mojang.blaze3d.pipeline.RenderTarget 2>/dev/null | head -20
-          fi
+          # Also try the moddev decompiled sources
+          MODDEV=$(find ~/.gradle/caches -name "*.jar" -path "*moddev*" 2>/dev/null | head -5)
+          echo "ModDev jars: $MODDEV"
+
+          # Search for the decompiled MC jar
+          ALL_MC=$(find ~/.gradle/caches -name "*.jar" 2>/dev/null | grep -i "minecraft" | grep -i "26.2" | head -10)
+          echo "All MC jars: $ALL_MC"
+
+          for JAR in $ALL_MC; do
+            echo "--- Checking $JAR ---"
+            if jar tf "$JAR" 2>/dev/null | grep -q "BufferBuilder"; then
+              echo "  Contains BufferBuilder!"
+              jar tf "$JAR" | grep "BufferBuilder" | head -5
+            fi
+            if jar tf "$JAR" 2>/dev/null | grep -q "Minecraft.class"; then
+              echo "  Contains Minecraft.class!"
+              jar tf "$JAR" | grep "net/minecraft/client/Minecraft" | head -5
+            fi
+          done
+
+          # Try javap on the first jar that has BufferBuilder
+          for JAR in $ALL_MC; do
+            if jar tf "$JAR" 2>/dev/null | grep -q "com/mojang/blaze3d/vertex/BufferBuilder.class"; then
+              echo ""
+              echo "=== BufferBuilder from $JAR ==="
+              javap -cp "$JAR" -p com.mojang.blaze3d.vertex.BufferBuilder 2>/dev/null | grep -E "BufferBuilder|build\(|vertexFormat" | head -15
+              echo ""
+              echo "=== RenderPipeline from $JAR ==="
+              javap -cp "$JAR" -p com.mojang.blaze3d.pipeline.RenderPipeline 2>/dev/null | head -20
+              echo ""
+              echo "=== Minecraft GUI methods from $JAR ==="
+              javap -cp "$JAR" -p net.minecraft.client.Minecraft 2>/dev/null | grep -iE "pushGui|popGui|screen|renderBuffer|bufferSource|mainRender|getMain" | head -20
+              echo ""
+              echo "=== ChatFormatting from $JAR ==="
+              javap -cp "$JAR" -p net.minecraft.ChatFormatting 2>/dev/null | grep -iE "color|getCol" | head -10
+              echo ""
+              echo "=== TagsProvider from $JAR ==="
+              javap -cp "$JAR" -p net.minecraft.data.tags.TagsProvider 2>/dev/null | head -20
+              echo ""
+              echo "=== ItemTagsProvider from $JAR ==="
+              javap -cp "$JAR" -p net.minecraft.data.tags.ItemTagsProvider 2>/dev/null | head -20
+              echo ""
+              echo "=== RenderBuffers from $JAR ==="
+              javap -cp "$JAR" -p net.minecraft.client.renderer.RenderBuffers 2>/dev/null | grep -iE "buffer" | head -15
+              echo ""
+              echo "=== RenderTarget from $JAR ==="
+              javap -cp "$JAR" -p com.mojang.blaze3d.pipeline.RenderTarget 2>/dev/null | head -20
+              echo ""
+              echo "=== PictureInPictureRenderer from $JAR ==="
+              javap -cp "$JAR" -p net.minecraft.client.gui.render.pip.PictureInPictureRenderer 2>/dev/null | head -20
+              break
+            fi
+          done
         continue-on-error: true
 
       - name: Build
