@@ -26,8 +26,48 @@ jobs:
         with:
           gradle-home-cache-cleanup: true
 
+      - name: Diagnose API drift
+        run: |
+          echo "=== Searching for MultiBufferSource equivalent ==="
+          find ~/.gradle/caches -name "*.jar" -path "*neoforge*26.2*" 2>/dev/null | head -5 | while read jar; do
+            echo "--- JAR: $jar ---"
+            jar tf "$jar" | grep -i "multibuffer\|buffersource\|BufferSource" | head -20
+          done
+          echo ""
+          echo "=== Searching for renderBuffers/bufferSource ==="
+          find ~/.gradle/caches -name "*.jar" -path "*neoforge*26.2*" 2>/dev/null | head -5 | while read jar; do
+            jar tf "$jar" | grep -i "renderbuffer" | head -20
+          done
+          echo ""
+          echo "=== Searching for IntrinsicHolderTagsProvider ==="
+          find ~/.gradle/caches -name "*.jar" -path "*neoforge*26.2*" 2>/dev/null | head -5 | while read jar; do
+            jar tf "$jar" | grep -i "intrinsicholder\|TagsProvider" | head -20
+          done
+          echo ""
+          echo "=== Searching for pushGuiLayer/popGuiLayer ==="
+          find ~/.gradle/caches -name "*.jar" -path "*minecraft*26.2*" 2>/dev/null | head -5 | while read jar; do
+            jar tf "$jar" | grep -i "minecraft.*Minecraft" | head -5
+          done
+          echo ""
+          echo "=== Searching for ChatFormatting ==="
+          find ~/.gradle/caches -name "*.jar" -path "*minecraft*26.2*" 2>/dev/null | head -5 | while read jar; do
+            jar tf "$jar" | grep -i "ChatFormatting\|TextColor" | head -20
+          done
+          echo ""
+          echo "=== Searching for getMainRenderTarget ==="
+          find ~/.gradle/caches -name "*.jar" -path "*minecraft*26.2*" 2>/dev/null | head -5 | while read jar; do
+            jar tf "$jar" | grep -i "rendertarget\|RenderTarget" | head -20
+          done
+          echo ""
+          echo "=== Searching for PictureInPictureRenderer ==="
+          find ~/.gradle/caches -name "*.jar" -path "*minecraft*26.2*" 2>/dev/null | head -5 | while read jar; do
+            jar tf "$jar" | grep -i "PictureInPicture" | head -20
+          done
+        continue-on-error: true
+
       - name: Build
         run: ./gradlew build
+        continue-on-error: true
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
