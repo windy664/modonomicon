@@ -28,42 +28,43 @@ jobs:
 
       - name: Diagnose API drift
         run: |
-          # Run gradle to download deps, then search the decompiled sources
-          ./gradlew :neo:prepareNeoForgeRun 2>/dev/null || true
-
-          echo "=== Searching decompiled MC sources ==="
-          MC_SRC=$(find ~/.gradle/caches -name "minecraft-*-sources.jar" -path "*26.2*" 2>/dev/null | head -1)
-          echo "MC sources jar: $MC_SRC"
-          if [ -n "$MC_SRC" ]; then
-            echo "--- MultiBufferSource ---"
-            jar tf "$MC_SRC" | grep -i "MultiBufferSource\|BufferSource" | head -10
-            echo "--- renderBuffers ---"
-            jar tf "$MC_SRC" | grep -i "RenderBuffers\|renderBuffers" | head -10
-            echo "--- Minecraft class methods ---"
-            jar tf "$MC_SRC" | grep "client/Minecraft.java" | head -5
-            echo "--- GuiGraphics ---"
-            jar tf "$MC_SRC" | grep "GuiGraphics" | head -10
-            echo "--- TagsProvider ---"
-            jar tf "$MC_SRC" | grep -i "TagsProvider\|IntrinsicHolder" | head -20
-            echo "--- ChatFormatting ---"
-            jar tf "$MC_SRC" | grep "ChatFormatting" | head -5
-            echo "--- RenderTarget ---"
-            jar tf "$MC_SRC" | grep "RenderTarget" | head -10
-            echo "--- PictureInPicture ---"
-            jar tf "$MC_SRC" | grep -i "PictureInPicture" | head -10
-            echo "--- VertexConsumer / BufferBuilder ---"
-            jar tf "$MC_SRC" | grep -i "VertexConsumer\|BufferBuilder" | head -10
+          # Find the patched MC jar from the neo build
+          MC_JAR=$(find . -name "minecraft-client-patched-*.jar" 2>/dev/null | head -1)
+          if [ -z "$MC_JAR" ]; then
+            MC_JAR=$(find ~/.gradle/caches -name "minecraft-client-patched-*.jar" 2>/dev/null | head -1)
           fi
+          echo "MC jar: $MC_JAR"
 
-          echo ""
-          echo "=== Searching NeoForge patches for clues ==="
-          NF_JAR=$(find ~/.gradle/caches -name "neoforge-*-userdev.jar" -path "*26.2*" 2>/dev/null | head -1)
-          echo "NeoForge userdev jar: $NF_JAR"
-          if [ -n "$NF_JAR" ]; then
-            echo "--- ItemTagsProvider source ---"
-            jar xf "$NF_JAR" net/neoforged/neoforge/common/data/ItemTagsProvider.java 2>/dev/null && cat net/neoforged/neoforge/common/data/ItemTagsProvider.java | head -40
-            echo "--- TagsProvider patch ---"
-            jar tf "$NF_JAR" | grep "TagsProvider.*patch" | head -10
+          if [ -n "$MC_JAR" ]; then
+            echo "=== BufferBuilder constructor ==="
+            javap -cp "$MC_JAR" -p com.mojang.blaze3d.vertex.BufferBuilder 2>/dev/null | grep -i "BufferBuilder\|build\|vertexFormat" | head -15
+            echo ""
+            echo "=== RenderPipeline methods ==="
+            javap -cp "$MC_JAR" -p com.mojang.blaze3d.pipeline.RenderPipeline 2>/dev/null | head -30
+            echo ""
+            echo "=== Minecraft methods (gui/render related) ==="
+            javap -cp "$MC_JAR" -p net.minecraft.client.Minecraft 2>/dev/null | grep -i "pushGui\|popGui\|screen\|renderBuffer\|bufferSource\|mainRender\|getMain" | head -20
+            echo ""
+            echo "=== ChatFormatting methods ==="
+            javap -cp "$MC_JAR" -p net.minecraft.ChatFormatting 2>/dev/null | grep -i "color\|getCol" | head -10
+            echo ""
+            echo "=== PictureInPictureRenderer ==="
+            javap -cp "$MC_JAR" -p net.minecraft.client.gui.render.pip.PictureInPictureRenderer 2>/dev/null | head -20
+            echo ""
+            echo "=== TagsProvider ==="
+            javap -cp "$MC_JAR" -p net.minecraft.data.tags.TagsProvider 2>/dev/null | head -30
+            echo ""
+            echo "=== IntrinsicHolderTagsProvider ==="
+            javap -cp "$MC_JAR" -p net.minecraft.data.tags.IntrinsicHolderTagsProvider 2>/dev/null | head -20
+            echo ""
+            echo "=== ItemTagsProvider ==="
+            javap -cp "$MC_JAR" -p net.minecraft.data.tags.ItemTagsProvider 2>/dev/null | head -20
+            echo ""
+            echo "=== RenderBuffers ==="
+            javap -cp "$MC_JAR" -p net.minecraft.client.renderer.RenderBuffers 2>/dev/null | grep -i "buffer" | head -15
+            echo ""
+            echo "=== RenderTarget ==="
+            javap -cp "$MC_JAR" -p com.mojang.blaze3d.pipeline.RenderTarget 2>/dev/null | head -20
           fi
         continue-on-error: true
 
