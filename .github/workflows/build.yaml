@@ -106,6 +106,16 @@ jobs:
             HAS=$(jar tf "$J" 2>/dev/null | grep -c "MultiBufferSource" || true)
             echo "  $J -> $HAS MultiBufferSource entries"
           done
+          echo ""
+          echo "=== javap MultiBufferSource from deobf jar ==="
+          DEOBF_JAR="/home/runner/.gradle/caches/fabric-loom/minecraftMaven/net/minecraft/minecraft-merged-deobf/26.2-snapshot-1/minecraft-merged-deobf-26.2-snapshot-1.jar"
+          javap -cp "$DEOBF_JAR" -p net.minecraft.client.renderer.MultiBufferSource 2>&1 | head -20
+          echo ""
+          echo "=== javap BufferSource from deobf jar ==="
+          javap -cp "$DEOBF_JAR" -p 'net.minecraft.client.renderer.MultiBufferSource$BufferSource' 2>&1 | head -20
+          echo ""
+          echo "=== Verify common module classpath ==="
+          ./gradlew :common:compileJava --info 2>&1 | grep -i "classpath\|Compiling\|minecraft" | head -10
         continue-on-error: true
 
       - name: Build
