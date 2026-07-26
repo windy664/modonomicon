@@ -114,8 +114,29 @@ jobs:
           echo "=== javap BufferSource from deobf jar ==="
           javap -cp "$DEOBF_JAR" -p 'net.minecraft.client.renderer.MultiBufferSource$BufferSource' 2>&1 | head -20
           echo ""
-          echo "=== Verify common module classpath ==="
-          ./gradlew :common:compileJava --info 2>&1 | grep -i "classpath\|Compiling\|minecraft" | head -10
+          echo "=== Check neo module's deobf jar ==="
+          # The neo module uses ModDev which creates its own deobf jar
+          NEO_DEOBF=$(find ~/.gradle/caches/neoformruntime -name "*.jar" 2>/dev/null | head -5)
+          echo "NeoForm jars: $NEO_DEOBF"
+          for J in $NEO_DEOBF; do
+            HAS=$(jar tf "$J" 2>/dev/null | grep -c "MultiBufferSource" || true)
+            echo "  $J -> $HAS MultiBufferSource entries"
+            if [ "$HAS" -gt 0 ]; then
+              jar tf "$J" | grep "MultiBufferSource"
+            fi
+          done
+          echo ""
+          echo "=== Check ModDev decompiled sources ==="
+          MODDEV_SRC=$(find ~/.gradle/caches -name "*.jar" -path "*moddev*" 2>/dev/null | head -5)
+          echo "ModDev jars: $MODDEV_SRC"
+          echo ""
+          echo "=== Search ALL jars for MultiBufferSource ==="
+          find ~/.gradle/caches -name "*.jar" 2>/dev/null | while read J; do
+            HAS=$(jar tf "$J" 2>/dev/null | grep -c "MultiBufferSource" || true)
+            if [ "$HAS" -gt 0 ]; then
+              echo "  FOUND in: $J ($HAS entries)"
+            fi
+          done
         continue-on-error: true
 
       - name: Build
