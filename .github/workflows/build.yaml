@@ -74,6 +74,22 @@ jobs:
           echo ""
           echo "=== ChatFormatting getColor ==="
           javap -cp "$MC_JAR" -p net.minecraft.ChatFormatting 2>/dev/null | grep -iE "color|getCol" | head -10
+          echo ""
+          echo "=== Check if MultiBufferSource exists in merged deobf ==="
+          jar tf "$MC_JAR" | grep "MultiBufferSource" | head -10
+          echo ""
+          echo "=== Check Minecraft class for screen field ==="
+          javap -cp "$MC_JAR" -p net.minecraft.client.Minecraft 2>/dev/null | grep -E "screen|Screen" | head -10
+          echo ""
+          echo "=== Check NeoGuiHelper alternatives ==="
+          javap -cp "$MC_JAR" -p net.minecraft.client.Minecraft 2>/dev/null | grep -iE "setScreen|pushScreen|popScreen|guiLayer" | head -10
+          echo ""
+          echo "=== GatherDataEvent.ItemTagsProvider ==="
+          NF_UNI=$(find ~/.gradle/caches -name "neoforge-*-universal.jar" -path "*26.2*" 2>/dev/null | head -1)
+          javap -cp "$NF_UNI" -p net.neoforged.neoforge.data.event.GatherDataEvent 2>/dev/null | grep -i "ItemTags\|tags" | head -10
+          echo ""
+          echo "=== NeoForge ItemTagsProvider ==="
+          javap -cp "$NF_UNI" -p net.neoforged.neoforge.common.data.ItemTagsProvider 2>/dev/null | head -20
         continue-on-error: true
 
       - name: Build
