@@ -137,6 +137,12 @@ jobs:
               echo "  FOUND in: $J ($HAS entries)"
             fi
           done
+          echo ""
+          echo "=== Common module compileJava classpath ==="
+          ./gradlew :common:compileJava --info 2>&1 | grep -A50 "Compiling with JDK" | grep -i "classpath\|jar\|minecraft" | head -20
+          echo ""
+          echo "=== Neo module compileJava classpath ==="
+          ./gradlew :neo:compileJava --info 2>&1 | grep -A50 "Compiling with JDK" | grep -i "classpath\|jar\|minecraft" | head -20
         continue-on-error: true
 
       - name: Build
