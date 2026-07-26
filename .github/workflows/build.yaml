@@ -90,6 +90,22 @@ jobs:
           echo ""
           echo "=== NeoForge ItemTagsProvider ==="
           javap -cp "$NF_UNI" -p net.neoforged.neoforge.common.data.ItemTagsProvider 2>/dev/null | head -20
+          echo ""
+          echo "=== Check common compile classpath ==="
+          # Look at what loom gives the common module
+          COMMON_JARS=$(find ~/.gradle/caches/fabric-loom -name "*.jar" 2>/dev/null | grep "26.2" | head -10)
+          echo "Loom jars: $COMMON_JARS"
+          for J in $COMMON_JARS; do
+            if jar tf "$J" 2>/dev/null | grep -q "MultiBufferSource"; then
+              echo "  MultiBufferSource found in: $J"
+            fi
+          done
+          echo ""
+          echo "=== Check if common uses different minecraft jar ==="
+          find ~/.gradle/caches -name "*.jar" -path "*minecraft*" 2>/dev/null | grep "26.2" | while read J; do
+            HAS=$(jar tf "$J" 2>/dev/null | grep -c "MultiBufferSource" || true)
+            echo "  $J -> $HAS MultiBufferSource entries"
+          done
         continue-on-error: true
 
       - name: Build
